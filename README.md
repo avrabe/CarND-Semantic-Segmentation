@@ -1,4 +1,7 @@
 # Semantic Segmentation
+
+[![Codacy Badge](https://api.codacy.com/project/badge/Grade/23dda323e23a4f1cbf514c402244b0fb)](https://app.codacy.com/app/avrabe/CarND-Semantic-Segmentation?utm_source=github.com&utm_medium=referral&utm_content=avrabe/CarND-Semantic-Segmentation&utm_campaign=badger)
+
 ### Introduction
 In this project, you'll label the pixels of a road in images using a Fully Convolutional Network (FCN).
 
