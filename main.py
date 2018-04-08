@@ -65,7 +65,7 @@ def layers(vgg_layer3_out, vgg_layer4_out, vgg_layer7_out, num_classes):
     output2 = tf.layers.conv2d_transpose(output, num_classes, 4, 2, padding='same',
                                          kernel_regularizer=tf.contrib.layers.l2_regularizer(1e-3))
     # Further add
-    return None
+    return output2
 
 
 tests.test_layers(layers)
@@ -81,7 +81,6 @@ def optimize(nn_last_layer, correct_label, learning_rate, num_classes):
     :return: Tuple of (logits, train_op, cross_entropy_loss)
     """
     # TODO: Implement function
-    
     return None, None, None
 
 
