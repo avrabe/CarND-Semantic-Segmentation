@@ -27,10 +27,7 @@ def load_vgg(sess, vgg_path):
     :param vgg_path: Path to vgg folder, containing "variables/" and "saved_model.pb"
     :return: Tuple of Tensors from VGG model (image_input, keep_prob, layer3_out, layer4_out, layer7_out)
     """
-    # TODO: Implement function
-    #   Use tf.saved_model.loader.load to load the model and weights
     vgg_tag = 'vgg16'
-    helper.maybe_download_pretrained_vgg("data")
     tf.saved_model.loader.load(sess, [vgg_tag], vgg_path)
     graph = tf.get_default_graph()
     vgg_input_tensor_name = 'image_input:0'
@@ -61,6 +58,13 @@ def layers(vgg_layer3_out, vgg_layer4_out, vgg_layer7_out, num_classes):
     :return: The Tensor for the last layer of output
     """
     # TODO: Implement function
+    conv_1x1 = tf.layers.conv2d(vgg_layer7_out, num_classes, 1, padding='same',
+                                kernel_regularizer=tf.contrib.layers.l2_regularizer(1e-3))
+    output = tf.layers.conv2d_transpose(conv_1x1, num_classes, 4, 2, padding='same',
+                                        kernel_regularizer=tf.contrib.layers.l2_regularizer(1e-3))
+    output2 = tf.layers.conv2d_transpose(output, num_classes, 4, 2, padding='same',
+                                         kernel_regularizer=tf.contrib.layers.l2_regularizer(1e-3))
+    # Further add
     return None
 
 
@@ -77,6 +81,7 @@ def optimize(nn_last_layer, correct_label, learning_rate, num_classes):
     :return: Tuple of (logits, train_op, cross_entropy_loss)
     """
     # TODO: Implement function
+    
     return None, None, None
 
 
@@ -131,6 +136,9 @@ def run():
 
         # TODO: Build NN using load_vgg, layers, and optimize function
 
+        image_input, keep_prob, layer3, layer4, layer7 = load_vgg(sess, vgg_path)
+        nn_last_layer = layers(layer3, layer4, layer7, num_classes)
+        logits, train_op, cross_entropy_loss = optimize(nn_last_layer, correct_label, learning_rate, num_classes) 
         # TODO: Train NN using the train_nn function
 
         # TODO: Save inference data using helper.save_inference_samples
