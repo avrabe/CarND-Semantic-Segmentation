@@ -58,23 +58,77 @@ def layers(vgg_layer3_out, vgg_layer4_out, vgg_layer7_out, num_classes):
     :return: The Tensor for the last layer of output
     """
     # TODO: Implement function
-    conv_1x1 = tf.layers.conv2d(vgg_layer7_out, num_classes, 1, padding='same',
-                                kernel_regularizer=tf.contrib.layers.l2_regularizer(1e-3))
-    output = tf.layers.conv2d_transpose(conv_1x1, num_classes, 4, strides=(2, 2), padding='same',
-                                        kernel_regularizer=tf.contrib.layers.l2_regularizer(1e-3))
-    output2 = tf.add(output, tf.reshape(vgg_layer4_out, (-1, num_classes)))
+    conv_1x1_layer_7 = tf.layers.conv2d(
+        inputs=vgg_layer7_out,
+        filters=num_classes,
+        kernel_size=1,
+        strides=(1, 1),
+        padding="same",
+        kernel_initializer=tf.truncated_normal_initializer(stddev=0.01),
+        kernel_regularizer=tf.contrib.layers.l2_regularizer(1e-3),
+        name="inception"
+    )
 
-    output3 = tf.layers.conv2d_transpose(output2, num_classes, 4, strides=(2, 2), padding='same',
-                                         kernel_regularizer=tf.contrib.layers.l2_regularizer(1e-3))
+    conv_1x1_layer_4 = tf.layers.conv2d(
+        inputs=vgg_layer4_out,
+        filters=num_classes,
+        kernel_size=1,
+        strides=(1, 1),
+        padding="same",
+        kernel_initializer=tf.truncated_normal_initializer(stddev=0.01),
+        kernel_regularizer=tf.contrib.layers.l2_regularizer(0.001),
+        name="conv_1x1_layer_4"
+    )
 
-    output4 = tf.add(output3, tf.reshape(vgg_layer3_out, (-1, num_classes)))
+    conv_1x1_layer_3 = tf.layers.conv2d(
+        inputs=vgg_layer3_out,
+        filters=num_classes,
+        kernel_size=1,
+        strides=(1, 1),
+        padding="same",
+        kernel_initializer=tf.truncated_normal_initializer(stddev=0.01),
+        kernel_regularizer=tf.contrib.layers.l2_regularizer(1e-3),
+        name="conv_1x1_layer_3"
+    )
 
-    output5 = tf.layers.conv2d_transpose(output4, num_classes, 4, strides=(8, 8), padding='same',
-                                         kernel_regularizer=tf.contrib.layers.l2_regularizer(1e-3))
+    output = tf.layers.conv2d_transpose(
+        inputs=conv_1x1_layer_7,
+        filters=num_classes,
+        kernel_size=4,
+        strides=(2, 2),
+        padding="same",
+        kernel_initializer=tf.truncated_normal_initializer(stddev=0.01),
+        kernel_regularizer=tf.contrib.layers.l2_regularizer(1e-3),
+        name="decoder_layer1"
+    )  # upsampling up by 2
 
-    # Further add
-    return output5
+    output = tf.add(output, conv_1x1_layer_4)  # 1st skip layer
 
+    output = tf.layers.conv2d_transpose(
+        inputs=output,
+        filters=num_classes,
+        kernel_size=4,
+        strides=(2, 2),
+        padding="same",
+        kernel_initializer=tf.truncated_normal_initializer(stddev=0.01),
+        kernel_regularizer=tf.contrib.layers.l2_regularizer(1e-3),
+        name="decoder_layer2"
+    )  # upsampling up by 2
+
+    output = tf.add(output, conv_1x1_layer_3)  # 2nd skip layer
+
+    output = tf.layers.conv2d_transpose(
+        inputs=output,
+        filters=num_classes,
+        kernel_size=16,
+        strides=(8, 8),
+        padding="same",
+        kernel_initializer=tf.truncated_normal_initializer(stddev=0.01),
+        kernel_regularizer=tf.contrib.layers.l2_regularizer(1e-3),
+        name="decoder_layer3"
+    )  # upsampling up by 8
+
+    return output
 
 tests.test_layers(layers)
 
@@ -128,8 +182,7 @@ def train_nn(sess, epochs, batch_size, get_batches_fn, train_op, cross_entropy_l
         for images, gt_images in get_batches_fn(batch_size):
             feed = {input_image: images,
                     correct_label: gt_images,
-                    keep_prob: 0.5,
-                    learning_rate: 0.00}
+                    keep_prob: 0.5}
 
             sess.run([train_op, cross_entropy_loss], feed_dict=feed)
 
@@ -165,8 +218,8 @@ def run():
         # OPTIONAL: Augment Images for better results
         #  https://datascience.stackexchange.com/questions/5224/how-to-prepare-augment-images-for-neural-network
 
-        epochs = 2
-        batch_size = 10
+        epochs = 1
+        batch_size = 1000
 
         # TODO: Build NN using load_vgg, layers, and optimize function
         correct_label = tf.placeholder(tf.float32, (None, image_shape[0], image_shape[1], 2))
@@ -177,7 +230,7 @@ def run():
         train_nn(sess, epochs, batch_size, get_batches_fn, train_op, cross_entropy_loss, image_input,
                  correct_label, keep_prob, learning_rate)
         # TODO: Save inference data using helper.save_inference_samples
-        # helper.save_inference_samples(runs_dir, data_dir, sess, image_shape, logits, keep_prob, input_image)
+        helper.save_inference_samples(runs_dir, data_dir, sess, image_shape, logits, keep_prob, image_input)
 
         # OPTIONAL: Apply the trained model to a video
 
