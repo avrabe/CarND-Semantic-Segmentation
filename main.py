@@ -1,4 +1,4 @@
-import os.path
+from pathlib import Path
 import tensorflow as tf
 import helper
 import warnings
@@ -28,7 +28,7 @@ def load_vgg(sess, vgg_path):
     :return: Tuple of Tensors from VGG model (image_input, keep_prob, layer3_out, layer4_out, layer7_out)
     """
     vgg_tag = 'vgg16'
-    tf.saved_model.loader.load(sess, [vgg_tag], vgg_path)
+    tf.saved_model.loader.load(sess, [vgg_tag], str(vgg_path))
     graph = tf.get_default_graph()
     vgg_input_tensor_name = 'image_input:0'
     vgg_keep_prob_tensor_name = 'keep_prob:0'
@@ -177,17 +177,19 @@ def train_nn(sess, epochs, batch_size, get_batches_fn, train_op, cross_entropy_l
     # sess.run(tf.local_variables_initializer())
 
     print("Training...")
+    steps = 0
     for epoch in range(epochs):
         print("Epoch {}".format(epoch))
         for images, gt_images in get_batches_fn(batch_size):
+            steps += 1
+
             feed = {input_image: images,
                     correct_label: gt_images,
                     keep_prob: 0.5}
 
-            sess.run([train_op, cross_entropy_loss], feed_dict=feed)
+            _, cross_entropy_loss2 = sess.run([train_op, cross_entropy_loss], feed_dict=feed)
 
-        # validation_accuracy = evaluate(X_validation, y_validation)
-        # print("EPOCH {} ... Validation Accuracy = {:.3f}".format(epoch + 1, validation_accuracy))
+            print('Epoch: {};Step: {};Loss: {}'.format(epoch, steps, cross_entropy_loss2))
 
 
 tests.test_train_nn(train_nn)
@@ -196,9 +198,11 @@ tests.test_train_nn(train_nn)
 def run():
     num_classes = 2
     image_shape = (160, 576)
-    learning_rate = 0.0005
-    data_dir = './data'
-    runs_dir = './runs'
+    learning_rate = 0.0001
+    epochs = 10
+    batch_size = 100
+    data_dir = Path('./data')
+    runs_dir = Path('./runs')
     tests.test_for_kitti_dataset(data_dir)
 
     # Download pretrained vgg model
@@ -210,16 +214,13 @@ def run():
 
     with tf.Session() as sess:
         # Path to vgg model
-        vgg_path = os.path.join(data_dir, 'vgg')
+        vgg_path = data_dir / 'vgg'
         # Create function to get batches
         get_batches_fn = helper.gen_batch_function(
-            os.path.join(data_dir, 'data_road/training'), image_shape)
+            data_dir / 'data_road/training', image_shape)
 
         # OPTIONAL: Augment Images for better results
         #  https://datascience.stackexchange.com/questions/5224/how-to-prepare-augment-images-for-neural-network
-
-        epochs = 1
-        batch_size = 1000
 
         # TODO: Build NN using load_vgg, layers, and optimize function
         correct_label = tf.placeholder(tf.float32, (None, image_shape[0], image_shape[1], 2))

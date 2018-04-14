@@ -1,13 +1,12 @@
 import re
 import random
 import numpy as np
-import os.path
 import scipy.misc
 import shutil
 import zipfile
 import time
 import tensorflow as tf
-from glob import glob
+from pathlib import Path
 from urllib.request import urlretrieve
 from tqdm import tqdm
 
@@ -27,35 +26,36 @@ def maybe_download_pretrained_vgg(data_dir):
     :param data_dir: Directory to download the model to
     """
     vgg_filename = 'vgg.zip'
-    vgg_path = os.path.join(data_dir, 'vgg')
+    vgg_path = data_dir / 'vgg'
     vgg_files = [
-        os.path.join(vgg_path, 'variables/variables.data-00000-of-00001'),
-        os.path.join(vgg_path, 'variables/variables.index'),
-        os.path.join(vgg_path, 'saved_model.pb')]
+        vgg_path / 'variables/variables.data-00000-of-00001',
+        vgg_path / 'variables/variables.index',
+        vgg_path / 'saved_model.pb']
 
-    missing_vgg_files = [vgg_file for vgg_file in vgg_files if not os.path.exists(vgg_file)]
+    missing_vgg_files = [vgg_file for vgg_file in vgg_files if not vgg_file.exists()]
     if missing_vgg_files:
         # Clean vgg dir
-        if os.path.exists(vgg_path):
-            shutil.rmtree(vgg_path)
-        os.makedirs(vgg_path)
+        if vgg_path.exists():
+            shutil.rmtree(str(vgg_path))
+        vgg_path.mkdir(parents=True)
 
+        zip_filename = vgg_path / vgg_filename
         # Download vgg
         print('Downloading pre-trained vgg model...')
         with DLProgress(unit='B', unit_scale=True, miniters=1) as pbar:
             urlretrieve(
                 'https://s3-us-west-1.amazonaws.com/udacity-selfdrivingcar/vgg.zip',
-                os.path.join(vgg_path, vgg_filename),
+                str(zip_filename),
                 pbar.hook)
 
         # Extract vgg
         print('Extracting model...')
-        zip_ref = zipfile.ZipFile(os.path.join(vgg_path, vgg_filename), 'r')
-        zip_ref.extractall(data_dir)
+        zip_ref = zipfile.ZipFile(str(zip_filename), 'r')
+        zip_ref.extractall(str(data_dir))
         zip_ref.close()
 
         # Remove zip file to save space
-        os.remove(os.path.join(vgg_path, vgg_filename))
+        zip_filename.unlink()
 
 
 def gen_batch_function(data_folder, image_shape):
@@ -71,10 +71,12 @@ def gen_batch_function(data_folder, image_shape):
         :param batch_size: Batch Size
         :return: Batches of training data
         """
-        image_paths = glob(os.path.join(data_folder, 'image_2', '*.png'))
-        label_paths = {
-            re.sub(r'_(lane|road)_', '_', os.path.basename(path)): path
-            for path in glob(os.path.join(data_folder, 'gt_image_2', '*_road_*.png'))}
+        image_path = data_folder / 'image_2'
+        image_paths = list(image_path.glob('*.png'))
+        gt_image_path = Path(data_folder / 'gt_image_2')
+        label_paths = {}
+        for path in gt_image_path.glob('*_road_*.png'):
+            label_paths[re.sub(r'_(lane|road)_', '_', path.name)] = path
         background_color = np.array([255, 0, 0])
 
         random.shuffle(image_paths)
@@ -82,7 +84,7 @@ def gen_batch_function(data_folder, image_shape):
             images = []
             gt_images = []
             for image_file in image_paths[batch_i:batch_i+batch_size]:
-                gt_image_file = label_paths[os.path.basename(image_file)]
+                gt_image_file = label_paths[str(image_file.name)]
 
                 image = scipy.misc.imresize(scipy.misc.imread(image_file), image_shape)
                 gt_image = scipy.misc.imresize(scipy.misc.imread(gt_image_file), image_shape)
@@ -109,7 +111,8 @@ def gen_test_output(sess, logits, keep_prob, image_pl, data_folder, image_shape)
     :param image_shape: Tuple - Shape of image
     :return: Output for for each test image
     """
-    for image_file in glob(os.path.join(data_folder, 'image_2', '*.png')):
+    path = data_folder / 'image_2'
+    for image_file in path.glob('*.png'):
         image = scipy.misc.imresize(scipy.misc.imread(image_file), image_shape)
 
         im_softmax = sess.run(
@@ -122,19 +125,19 @@ def gen_test_output(sess, logits, keep_prob, image_pl, data_folder, image_shape)
         street_im = scipy.misc.toimage(image)
         street_im.paste(mask, box=None, mask=mask)
 
-        yield os.path.basename(image_file), np.array(street_im)
+        yield image_file.name, np.array(street_im)
 
 
 def save_inference_samples(runs_dir, data_dir, sess, image_shape, logits, keep_prob, input_image):
     # Make folder for current run
-    output_dir = os.path.join(runs_dir, str(time.time()))
-    if os.path.exists(output_dir):
+    output_dir = runs_dir / str(time.time())
+    if output_dir.exists():
         shutil.rmtree(output_dir)
-    os.makedirs(output_dir)
+    output_dir.mkdir(parents=True)
 
     # Run NN on test images and save them to HD
     print('Training Finished. Saving test images to: {}'.format(output_dir))
     image_outputs = gen_test_output(
-        sess, logits, keep_prob, input_image, os.path.join(data_dir, 'data_road/testing'), image_shape)
+        sess, logits, keep_prob, input_image, data_dir / 'data_road/testing', image_shape)
     for name, image in image_outputs:
-        scipy.misc.imsave(os.path.join(output_dir, name), image)
+        scipy.misc.imsave(output_dir / name, image)
