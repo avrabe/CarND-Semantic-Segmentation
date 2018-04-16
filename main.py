@@ -145,7 +145,7 @@ def optimize(nn_last_layer, correct_label, learning_rate, num_classes):
     # TODO: Implement function
     logits = tf.reshape(nn_last_layer, (-1, num_classes))
 
-    cross_entropy_loss = tf.nn.softmax_cross_entropy_with_logits_v2(labels=correct_label,
+    cross_entropy_loss = tf.nn.softmax_cross_entropy_with_logits(labels=correct_label,
                                                                     logits=logits)
     loss_operation = tf.reduce_mean(cross_entropy_loss)
     optimizer = tf.train.AdamOptimizer(learning_rate=learning_rate)
@@ -200,7 +200,7 @@ def run():
     image_shape = (160, 576)
     learning_rate = 0.0001
     epochs = 10
-    batch_size = 100
+    batch_size = 10
     data_dir = Path('./data')
     runs_dir = Path('./runs')
     tests.test_for_kitti_dataset(data_dir)
